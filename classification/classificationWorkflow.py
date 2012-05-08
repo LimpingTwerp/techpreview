@@ -13,7 +13,7 @@ from PyQt4.QtGui import QColor, QMainWindow, QApplication, QFileDialog, \
                         QMessageBox, qApp, QItemSelectionModel, QIcon, QTransform, QDialog
 from PyQt4 import uic
 
-from igms.stackloader import OpStackChainBuilder,StackLoader
+from igms.stackloader import StackLoader, OpChainLoader
 
 from lazyflow.graph import Graph
 from lazyflow.operators import Op5ToMulti, OpArrayCache, OpBlockedArrayCache, \
@@ -393,7 +393,22 @@ class Main(QMainWindow):
             vigra.AxisInfo('y',vigra.AxisType.Space),
             vigra.AxisInfo('z',vigra.AxisType.Space),
             vigra.AxisInfo('c',vigra.AxisType.Channels))
-        self.raw = self.stackLoader.ChainBuilder.outputs["output"]().wait()
+        
+        self.loader = OpStackLoader(self.g)
+        self.op5ifyer = Op5ifyer(self.g)
+        self.loader.inputs["globstring"].setValue("/home/kai/testImages/*.png")
+        self.op5ifyer.inputs["input"].connect(self.loader.outputs["stack"])
+        self.raw = self.op5ifyer.outputs["output"]().wait()
+        
+
+        self.opChain = OpChainLoader(self.g)
+        self.opChain.inputs["globstring"].setValue("/home/kai/testImages/*.png")
+        self.opChain.inputs["invert"].setValue(True)
+        self.opChain.inputs["convert"].setValue(False)
+        self.raw2 = self.opChain.outputs["output"]().wait()
+
+
+        
         self.raw = vigra.VigraArray(self.raw,axistags = axistags)
         self.min, self.max = numpy.min(self.raw), numpy.max(self.raw)
         self.inputProvider.inputs["Input"].setValue(self.raw)
