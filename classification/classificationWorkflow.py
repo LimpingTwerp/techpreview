@@ -19,10 +19,10 @@ from lazyflow.graph import Graph
 from lazyflow.operators import Op5ToMulti, OpArrayCache, OpBlockedArrayCache, \
                                OpArrayPiper, OpPredictRandomForest, \
                                OpSingleChannelSelector, OpSparseLabelArray, \
-                               OpMultiArrayStacker, OpTrainRandomForest, OpPixelFeatures, \
+                               OpMultiArrayStacker, OpTrainRandomForest,  \
                                OpMultiArraySlicer2,OpH5Reader, OpBlockedSparseLabelArray, \
-                               OpMultiArrayStacker, OpTrainRandomForestBlocked, OpPixelFeatures, \
-                               OpH5ReaderBigDataset, OpSlicedBlockedArrayCache, OpPixelFeaturesPresmoothed
+                               OpMultiArrayStacker, OpTrainRandomForestBlocked,  \
+                               OpH5ReaderBigDataset, OpSlicedBlockedArrayCache
 
 from volumina.api import LazyflowSource, GrayscaleLayer, RGBALayer, ColortableLayer, \
     AlphaModulatedLayer, LayerStackModel, VolumeEditor, LazyflowSinkSource
@@ -374,12 +374,7 @@ class Main(QMainWindow):
         self.raw = f[hdf5Path][:]
         self.raw = self.raw.view(vigra.VigraArray)
         self.min, self.max = numpy.min(self.raw), numpy.max(self.raw)
-        self.raw.axistags =  vigra.AxisTags(
-                vigra.AxisInfo('t',vigra.AxisType.Time),
-                vigra.AxisInfo('x',vigra.AxisType.Space),
-                vigra.AxisInfo('y',vigra.AxisType.Space),
-                vigra.AxisInfo('z',vigra.AxisType.Space),
-                vigra.AxisInfo('c',vigra.AxisType.Channels))
+        self.raw.axistags =  vigra.defaultAxistags('txyzc')
         self.inputProvider.inputs["Input"].setValue(self.raw)
         self.haveData.emit()
         
@@ -387,28 +382,8 @@ class Main(QMainWindow):
 
     def _stackLoad(self):
         self.inputProvider = OpArrayPiper(self.g)
-        axistags =  vigra.AxisTags(
-            vigra.AxisInfo('t',vigra.AxisType.Time),
-            vigra.AxisInfo('x',vigra.AxisType.Space),
-            vigra.AxisInfo('y',vigra.AxisType.Space),
-            vigra.AxisInfo('z',vigra.AxisType.Space),
-            vigra.AxisInfo('c',vigra.AxisType.Channels))
-        
-        self.loader = OpStackLoader(self.g)
-        self.op5ifyer = Op5ifyer(self.g)
-        self.loader.inputs["globstring"].setValue("/home/kai/testImages/*.png")
-        self.op5ifyer.inputs["input"].connect(self.loader.outputs["stack"])
-        self.raw = self.op5ifyer.outputs["output"]().wait()
-        
-
-        self.opChain = OpChainLoader(self.g)
-        self.opChain.inputs["globstring"].setValue("/home/kai/testImages/*.png")
-        self.opChain.inputs["invert"].setValue(True)
-        self.opChain.inputs["convert"].setValue(False)
-        self.raw2 = self.opChain.outputs["output"]().wait()
-
-
-        
+        axistags = vigra.defaultAxistags('txyzc')
+        self.raw = self.stackLoader.ChainLoader.outputs["output"]().wait()
         self.raw = vigra.VigraArray(self.raw,axistags = axistags)
         self.min, self.max = numpy.min(self.raw), numpy.max(self.raw)
         self.inputProvider.inputs["Input"].setValue(self.raw)
@@ -532,7 +507,7 @@ class Main(QMainWindow):
         shape=self.inputProvider.outputs["Output"].shape
         
         self.editor = VolumeEditor(self.layerstack, labelsink=self.labelsrc)
-
+        self.editor.dataShape = shape
         self.editor.newImageView2DFocus.connect(self.setIconToViewMenu)
         #drawing will be enabled when the first label is added  
         self.editor.setInteractionMode( 'navigation' )
